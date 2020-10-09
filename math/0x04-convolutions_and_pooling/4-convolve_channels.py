@@ -1,60 +1,71 @@
 #!/usr/bin/env python3
-"""
-performs a convolution on images with channels
-"""
+"""contains the convolve_channels function"""
+
 import numpy as np
 
 
-def convolve_channels(images, kernel, padding='same',
-                      stride=(1, 1)):
+def convolve_channels(images, kernel, padding='same', stride=(1, 1)):
     """
-    images: numpy.ndarray w/ shape (m, h, w)
-    kernel: numpy.ndarray w/ shape (kh, kw)
-    padding: tuple of (ph, pw)
-    Returns: a numpy.ndarray cotaining convolved images
-    m: num of images
-    h: height in pixels of images
-    w: width in pixels of images
-    c: num of channels in the image
-    kh: height of the kernel
-    kw: width of the kernel
-    ph = padding for height
-    pw = padding for width
-    sh = stride for height
-    sw = stride for width
+    performs a convolution on images with channels
+    :param images: numpy.ndarray with shape (m, h, w, c)
+        containing multiple grayscale images
+        m is the number of images
+        h is the height in pixels of the images
+        w is the width in pixels of the images
+        c is the number of channels in the image
+    :param kernel: numpy.ndarray with shape (kh, kw)
+        containing the kernel for the convolution
+        kh is the height of the kernel
+        kw is the width of the kernel
+    :param padding: either a tuple of (ph, pw), ‘same’, or ‘valid’
+        if ‘same’, performs a same convolution
+        if ‘valid’, performs a valid convolution
+        if a tuple:
+            ph is the padding for the height of the image
+            pw is the padding for the width of the image
+    :param stride: tuple of (sh, sw)
+        sh is the stride for the height of the image
+        sw is the stride for the width of the image
+    :return: numpy.ndarray containing the convolved images
     """
-    m = images.shape[0]
-    h = images.shape[1]
-    w = images.shape[2]
-    c = images.shape[3]
-    kh = kernel.shape[0]
-    kw = kernel.shape[1]
-    sh = stride[0]
-    sw = stride[1]
+    c, w, = images.shape[3], images.shape[2]
+    h, m = images.shape[1], images.shape[0]
+    kw, kh = kernel.shape[1], kernel.shape[0]
+    sw, sh = stride[1], stride[0]
 
-    if padding == 'valid':
-        ph = 0
-        pw = 0
+    pw, ph = 0, 0
+
     if padding == 'same':
-        ph = int(((h-1)*sh+kh-h)/2) + 1
-        pw = int(((w-1)*sw+kw-w)/2) + 1
-    if type(padding) == tuple:
+        ph = int(((h - 1) * sh + kh - h) / 2) + 1
+        pw = int(((w - 1) * sw + kw - w) / 2) + 1
+
+    if isinstance(padding, tuple):
+        # Extract required padding
         ph = padding[0]
         pw = padding[1]
-    if type(padding) == tuple or padding == 'same':
-        images = np.pad(images,
-                        pad_with=((0, 0), (ph, ph), (pw, pw), (0, 0)),
-                        mode='constant', constant_values=0)
-    cust_sh = int(((h + 2*ph-kh) / sh) + 1)
-    cust_sw = int(((w + 2*pw-kw) / sw) + 1)
-    cv_output = np.zeros((m, cust_sh, cust_sw))
-    image = np.arange(m)
 
-    for y in range(cust_sh):
-        for x in range(cust_sw):
-            cv_output[image, y, x] = (np.sum(images
-                                             [image, y*sh:(kh + (y*sh)),
-                                              x*sw:(kw + (x*sw))] *
-                                             kernel,
-                                             axis=(1, 2, 3)))
-    return cv_output
+    # pad images
+    images_padded = np.pad(images,
+                           pad_width=((0, 0),
+                                      (ph, ph),
+                                      (pw, pw),
+                                      (0, 0)),
+                           mode='constant', constant_values=0)
+
+    new_h = int(((images_padded.shape[1] - kh) / sh) + 1)
+    new_w = int(((images_padded.shape[2] - kw) / sw) + 1)
+
+    # initialize convolution output tensor
+    output = np.zeros((m, new_h, new_w))
+
+    # Loop over every pixel of the output
+    for x in range(new_w):
+        for y in range(new_h):
+            # element-wise multiplication of the kernel and the image
+            output[:, y, x] = \
+                (kernel * images_padded[:,
+                                        y * sh: y * sh + kh,
+                                        x * sw: x * sw + kw,
+                                        :]).sum(axis=(1, 2, 3))
+
+    return output

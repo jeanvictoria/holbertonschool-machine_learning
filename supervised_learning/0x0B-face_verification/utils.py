@@ -10,8 +10,7 @@ def load_images(images_path, as_array=True):
     images = []
     filenames = []
     for filename in os.listdir(images_path):
-        img = cv2.imread(images_path + "/" + filename, 1)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.imread(images_path +      img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         images.append(img)
         filenames.append(filename)
     if as_array is True:

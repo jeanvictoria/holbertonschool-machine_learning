@@ -1,89 +1,94 @@
 #!/usr/bin/env python3
 """
-Class the represents a noisless 1D Gaussian Process
+Class GaussianProcess
+That represents a noiseless 1D Gaussian process
 """
 import numpy as np
 
 
-class GaussianProcess:
+class GaussianProcess():
+    """
+    Class that represents a noiseless 1D Gaussian process
+    """
 
-    """ Class reoresents noisless 1D Gaussian Process"""
-    def __init__(self, X_init, Y_init, L=1, sigma_f=1):
+    def __init__(self, X_init, Y_init, l=1, sigma_f=1):
         """
-        class comstructor
-        :param self:
-        :param X_init: np.ndarray (t,1) imputs sampled with black-box function
-        :param Y_init:np.ndarray (t, 1) outputs of the black box function
-                        for X_init
-        :param L: length parameter for the kernel
-        :param sigma_f: standard deviation given output
-        :return: covariance np.ndarray (m,n)
+        Constructor
+        Arguments:
+         - X_init is a numpy.ndarray of shape (t, 1) representing
+            the inputs already sampled with the black-box function
+         - Y_init is a numpy.ndarray of shape (t, 1) representing
+            the outputs of the black-box function for each input in X_init
+         - t is the number of initial samples
+         - l is the length parameter for the kernel
+         - sigma_f is the standard deviation given to the output
+            of the black-box function
+        Public instance attributes:
+         - X corresponding to the respective constructor inputs
+         - Y corresponding to the respective constructor inputs
+         - l corresponding to the respective constructor inputs
+         - sigma_f  corresponding to the respective constructor inputs
+         - K  representing the current covariance kernel matrix
+            for the Gaussian process
         """
-        # t = 0
-        # X_init = np.ndarray(shape=(t, 1))
-        # Y_init = np.ndarray(shape=(t, 1))
         self.X = X_init
         self.Y = Y_init
-        self.L = L
+        self.l = l
         self.sigma_f = sigma_f
-        self.K = self.kernel(self.X, self.X)
+        self.K = self.kernel(X_init, X_init)
 
     def kernel(self, X1, X2):
         """
-        calculates the covariance kernel matrix between two
-        Matrices
-        :param X1: np.ndarray, (m, 1)
-        :param X2: np.ndarray, (n, 1)
-        :return: covariance matrix (m, n)
+        Public instance method that calculates the covariance kernel matrix
+        between two matrices
+        Arguments:
+         - X1 is a numpy.ndarray of shape (m, 1)
+         - X2 is a numpy.ndarray of shape (n, 1)
+        Returns:
+         The covariance kernel matrix as a numpy.ndarray of shape (m, n)
         """
-        # m = 0
-        # n = 0
-        # X1 = np.ndarray(shape=(m, 1))
-        # X2 = np.ndarray(shape=(n, 1))
+        sqdist = np.sum(X1**2, 1).reshape(-1, 1) + np.sum(X2**2, 1) - 2 \
+            * np.dot(X1, X2.T)
+        K = self.sigma_f**2 * np.exp(-0.5 / self.l**2 * sqdist)
 
-        # quared distance
-        sqdist = np.sum(X1**2, 1).reshape(-1, 1)\
-            + np.sum(X2**2, 1) - 2 * np.dot(X1, X2.T)
-        covMatrix = self.sigma_f**2 * np.exp(-0.5 / self.L**2 * sqdist)
-        print(covMatrix)
-        return covMatrix
+        return K
 
     def predict(self, X_s):
         """
-        Predicts the mean and standard deviation of points
-                in a Gaussian process
-        :param X_s: np.ndarray (s, 1)
-        s: number of samplepoints
-        mu: np.ndarray, (s,) contains mean for each point in X_s
-        sigma: np.ndarray (s,) contains: standard deviation of each pointin X_s
-        :return: mu, sigma
+        Public instance method that predicts the mean
+        and standard deviation of points in a Gaussian process
+        Arguments:
+         - X_s is a numpy.ndarray of shape (s, 1) containing all of the points
+            whose mean and standard deviation should be calculated
+            * s is the number of sample points
+        Returns:
+         mu, sigma
+         - mu is a numpy.ndarray of shape (s,) containing the mean for
+            each point in X_s, respectively
+         - sigma is a numpy.ndarray of shape (s,) containing the
+            standard deviation for each point in X_s, respectively
         """
-        # s = 0
-        # X_s = np.ndarray(shape=(s, 1))
+        K_inv = np.linalg.inv(self.K)
+        K_s = self.kernel(self.X, X_s)
+        K_ss = self.kernel(X_s, X_s)
 
-        # update kernel witout adding sigma_y**2
-        kern = self.kernel(self.X, self.X)
-        kern_inv = np.linalg.inv(kern)
-        kern_update = self.kernel(self.X, X_s)
-        kern_update2 = self.kernel(X_s, X_s)
-
-        # calculate the mean
-        mean = kern_update.T.dot(kern_inv).dot(self.Y)
-        mu = mean.reshape(-1)
-
-        # calculate the sigma
-        cov = kern_update2 - kern_update.T.dot(kern_inv).dot(kern_update)
-        sigma = cov.diagonal()
+        mu_s = K_s.T.dot(K_inv).dot(self.Y)
+        mu = np.reshape(mu_s, -1)
+        c_s = K_ss - K_s.T.dot(K_inv).dot(K_s)
+        sigma = np.diagonal(c_s)
 
         return mu, sigma
 
     def update(self, X_new, Y_new):
         """
-        Update Public Instance Attributes X, Y, K
-        :param X_new: np.ndarray (1,) new sample point
-        :param Y_new: np.ndarray, (1,) new Sample function value
-        :return:
+        Public instance method that updates a Gaussian Process
+        Updates the public instance attributes X, Y, and K
+        Argumetns:
+         - X_new is a numpy.ndarray of shape (1,) that represents
+            the new sample point
+         - Y_new is a numpy.ndarray of shape (1,) that represents
+            the new sample function value
         """
-        self.X = np.append(self.X, X_new).reshape(-1, 1)
-        self.Y = np.append(self.Y, Y_new).reshape(-1, 1)
+        self.X = np.concatenate((self.X, X_new[:, np.newaxis]), axis=0)
+        self.Y = np.concatenate((self.Y, Y_new[:, np.newaxis]), axis=0)
         self.K = self.kernel(self.X, self.X)

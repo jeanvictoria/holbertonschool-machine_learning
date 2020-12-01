@@ -1,65 +1,51 @@
-#!/usr/bin/python3
-"""
-A function that creates an autoencoder
-"""
+#!/usr/bin/env python3
+"""Autoencoders"""
 
-import tensorflow as tf
-from tensorflow import keras as K
+import tensorflow.keras as keras
 
 
 def autoencoder(input_dims, hidden_layers, latent_dims):
     """
-    creates an autoencoder
-    :param input_dims: int contains dimensions of model input
-    :param hidden_layers: list, num of nodes for each layer in encoder
-    :param latent_dims: int, dimensions of the latent space
-                        representation
-    note: hiden layers should be reversed for the decoder
-    note: autoencoder model should be compiled using adam
-    note: all layers use a relu activation except the last layer
-    note: last lahyer in the decoder uses sigmoid
-            encoder: encoder model
-            decoder: decoder model
-            auto: full autoencoder model
-    :return:  encoder, decoder, auto
+    :param input_dims:is an integer containing
+    the dimensions of the model input
+    :param hidden_layers: is a list containing the number
+     of nodes for each hidden layer in the encoder, respectively
+    :param latent_dims: is an integer containing the
+     dimensions of the latent space representation
+    :return:encoder, decoder, auto
     """
-    # inputs
-    encoderInput = K.Input(shape=(input_dims, ))
-    decoderInput = K.Input(shape=(latent_dims, ))
+    input_image = keras.Input(shape=(input_dims,))
+    output = keras.layers.Dense(hidden_layers[0],
+                                activation='relu')(input_image)
+    # encoder
+    for layer in range(1, len(hidden_layers)):
+        output = keras.layers.Dense(hidden_layers[layer],
+                                    activation='relu')(input_image)
+    encoder_out = keras.layers.Dense(latent_dims,
+                                     activation='relu')(output)
 
-    # first output layers
-    en_output_1 = K.layers.Dense(hidden_layers[0],
-                                 activation='relu')(encoderInput)
-    de_output_1 = K.layers.Dense(hidden_layers[-1],
-                                 activation='relu')(decoderInput)
+    input_decoder = keras.Input(shape=(latent_dims,))
+    out_decoder = keras.layers.Dense(hidden_layers[-1],
+                                     activation='relu')(input_decoder)
 
-    # Encoder
-    for idx in range(1, len(hidden_layers)):
-        # second output layer
-        en_output_2 = K.layers.Dense(hidden_layers[idx],
-                                     activation='relu')(en_output_1)
-    encoderOutput = K.layers.Dense(latent_dims,
-                                   activation='relu')(en_output_2)
+    for layer in range(len(hidden_layers) - 2, -1, -1):
+        out_decoder = keras.layers.Dense(hidden_layers[layer],
+                                         activation='relu')(out_decoder)
+    decoder_out = keras.layers.Dense(input_dims,
+                                     activation='sigmoid')(out_decoder)
 
-    # encoder Model
-    encoder = K.models.Model(inputs=encoderInput, outputs=encoderOutput)
+    encoder = keras.models.Model(inputs=input_image,
+                                 outputs=encoder_out)
+    decoder = keras.models.Model(inputs=input_decoder,
+                                 outputs=decoder_out)
 
-    # Decoder
-    for idx in range(len(hidden_layers)-2, -1, -1):
-        # second output layer
-        de_output_2 = K.layers.Dense(hidden_layers[idx],
-                                     activation='relu')(de_output_1)
-    decoderOutput = K.layers.Dense(latent_dims,
-                                   activation='sigmoid')(de_output_2)
+    input_auto = keras.Input(shape=(input_dims, ))
 
-    # decoder Model
-    decoder = K.models.Model(inputs=decoderInput, outputs=decoderOutput)
+    full_encoder = encoder(input_auto)
+    full_decoder = decoder(full_encoder)
+    auto = keras.models.Model(inputs=input_auto,
+                              outputs=full_decoder)
+    auto.compile(optimizer='Adam',
+                 loss='binary_crossentropy')
 
-    # Autoencoder
-    autoInput = K.Input(shape=input_dims, )
-    encoderAuto = encoder(autoInput)
-    decoderAuto = decoder(encoderAuto)
-    auto = K.Model(inputs=autoInput, outputs=decoderAuto)
-    auto.K.model.compile(optimizer='Adam', loss='binary_crossentropy')
-
-    return (encoder, decoder, auto)
+    return encoder, decoder, auto
